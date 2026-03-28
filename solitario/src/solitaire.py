@@ -2,7 +2,6 @@ SOLITAIRE_WIDTH = 1000
 SOLITAIRE_HEIGHT = 500
 
 import random
-
 import flet as ft
 from card import Card
 from slot import Slot
@@ -26,12 +25,105 @@ class Solitaire(ft.Stack):
         self.controls = []
         self.width = SOLITAIRE_WIDTH
         self.height = SOLITAIRE_HEIGHT
+        self.history = []
 
     def did_mount(self):
         self.create_card_deck()
         self.create_slots()
         self.deal_cards()
 
+    # ---------------------------------------------------------
+    #  SISTEMA DE UNDO POR REFERÊNCIA DE CARTA
+    # ---------------------------------------------------------
+    def save_state(self):
+        state = []
+
+        for card in self.cards:
+            state.append(
+                {
+                    "card": card,
+                    "slot": card.slot,
+                    "face_up": card.face_up,
+                    "top": card.top,
+                    "left": card.left,
+                }
+            )
+
+        self.history.append(state)
+
+    def undo(self):
+        if len(self.history) < 2:
+            return
+
+        # descartar estado atual
+        self.history.pop()
+        state = self.history[-1]
+
+        # criar pilhas temporárias
+        new_piles = {
+            self.stock: [],
+            self.waste: [],
+            **{slot: [] for slot in self.foundations},
+            **{slot: [] for slot in self.tableau},
+        }
+
+        # reconstruir pilhas na ordem correta
+        for entry in state:
+            card = entry["card"]
+            slot = entry["slot"]
+            new_piles[slot].append(card)
+
+            # restaurar posição visual
+            card.top = entry["top"]
+            card.left = entry["left"]
+
+            # restaurar face
+            card.face_up = entry["face_up"]
+            if card.face_up:
+                card.turn_face_up()
+            else:
+                card.turn_face_down()
+
+        # aplicar pilhas restauradas
+        for slot, pile in new_piles.items():
+            slot.pile = pile
+            for card in pile:
+                card.slot = slot
+
+        self.update()
+
+
+
+    # ---------------------------------------------------------
+    #  RESET TOTAL DO JOGO
+    # ---------------------------------------------------------
+    def reset_game(self):
+        # limpar pilhas
+        for slot in [self.stock, self.waste] + self.foundations + self.tableau:
+            slot.pile.clear()
+
+        # remover TODAS as cartas do layout
+        self.controls = [
+            self.stock,
+            self.waste,
+            *self.foundations,
+            *self.tableau
+        ]
+
+        # recriar baralho e redistribuir
+        self.create_card_deck()
+        self.deal_cards()
+
+        # novo jogo = histórico limpo + estado inicial
+        self.history.clear()
+        self.save_state()
+
+        self.update()
+
+
+    # ---------------------------------------------------------
+    #  RESTO DO TEU CÓDIGO (LÓGICA IGUAL)
+    # ---------------------------------------------------------
     def create_card_deck(self):
         suites = [
             Suite("hearts", "RED"),
@@ -56,28 +148,29 @@ class Solitaire(ft.Stack):
         ]
 
         self.cards = []
+        id_counter = 0
 
         for suite in suites:
             for rank in ranks:
-                self.cards.append(Card(solitaire=self, suite=suite, rank=rank))
+                self.cards.append(Card(self, suite, rank, id_counter))
+                id_counter += 1
 
     def create_slots(self):
-        self.stock = Slot(solitaire=self, top=0, left=0, border=ft.border.all(1))
-
-        self.waste = Slot(solitaire=self, top=0, left=100, border=None)
+        self.stock = Slot(self, top=0, left=0, border=ft.border.all(1))
+        self.waste = Slot(self, top=0, left=100, border=None)
 
         self.foundations = []
         x = 300
         for i in range(4):
             self.foundations.append(
-                Slot(solitaire=self, top=0, left=x, border=ft.border.all(1, "outline"))
+                Slot(self, top=0, left=x, border=ft.border.all(1, "outline"))
             )
             x += 100
 
         self.tableau = []
         x = 0
         for i in range(7):
-            self.tableau.append(Slot(solitaire=self, top=150, left=x, border=None))
+            self.tableau.append(Slot(self, top=150, left=x, border=None))
             x += 100
 
         self.controls.append(self.stock)
@@ -90,7 +183,6 @@ class Solitaire(ft.Stack):
         random.shuffle(self.cards)
         self.controls.extend(self.cards)
 
-        # deal to tableau
         first_slot = 0
         remaining_cards = self.cards
 
@@ -101,10 +193,8 @@ class Solitaire(ft.Stack):
                 remaining_cards.remove(top_card)
             first_slot += 1
 
-        # place remaining cards to stock pile
         for card in remaining_cards:
             card.place(self.stock)
-            print(f"Card in stock: {card.rank.name} {card.suite.name}")
 
         self.update()
 
@@ -112,6 +202,10 @@ class Solitaire(ft.Stack):
             slot.get_top_card().turn_face_up()
 
         self.update()
+
+        # estado inicial do jogo
+        self.history.clear()
+        self.save_state()
 
     def check_foundations_rules(self, card, slot):
         top_card = slot.get_top_card()
@@ -135,6 +229,9 @@ class Solitaire(ft.Stack):
             return card.rank.name == "King"
 
     def restart_stock(self):
+        # reciclar stock também é jogada
+        self.save_state()
+
         while len(self.waste.pile) > 0:
             card = self.waste.get_top_card()
             card.turn_face_down()
@@ -145,9 +242,7 @@ class Solitaire(ft.Stack):
         cards_num = 0
         for slot in self.foundations:
             cards_num += len(slot.pile)
-        if cards_num == 52:
-            return True
-        return False
+        return cards_num == 52
 
     def winning_sequence(self):
         for slot in self.foundations:
