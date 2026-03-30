@@ -2,6 +2,7 @@ SOLITAIRE_WIDTH = 1000
 SOLITAIRE_HEIGHT = 500
 
 import random
+import asyncio
 import flet as ft
 from card import Card
 from slot import Slot
@@ -27,26 +28,87 @@ class Solitaire(ft.Stack):
         self.height = SOLITAIRE_HEIGHT
         self.history = []
 
-        # NOVO: traseira atual das cartas
+        # traseira atual das cartas
         self.card_back_src = "/images/card_back.png"
 
+        # pontuação e tempo
+        self.score = 0
+        self.seconds = 0
+        self.timer_running = False
+        self.first_move_done = False
+
+        # UI da barra superior
+        self.score_text = ft.Text("Pontuação: 0", size=18, weight="bold")
+        self.time_text = ft.Text("Tempo: 00:00", size=18, weight="bold")
+
+        self.top_bar = ft.Container(
+            width=SOLITAIRE_WIDTH,
+            height=40,
+            bgcolor="#DDDDDD",
+            padding=10,
+            content=ft.Row(
+                [
+                    self.time_text,
+                    ft.Container(width=40),
+                    self.score_text,
+                ],
+                alignment="start",
+            ),
+        )
+
+        self.controls.append(self.top_bar)
+
+    # ---------------------------------------------------------
+    #  TIMER ASSÍNCRONO (compatível com Flet 0.25.1)
+    # ---------------------------------------------------------
+    async def timer_loop(self):
+        while self.timer_running:
+            await asyncio.sleep(1)
+            self.seconds += 1
+            mins = self.seconds // 60
+            secs = self.seconds % 60
+            self.time_text.value = f"Tempo: {mins:02d}:{secs:02d}"
+            self.update()
+
+    def start_timer(self):
+        if not self.first_move_done:
+            self.first_move_done = True
+            self.timer_running = True
+            self.page.run_task(self.timer_loop)
+
+    def stop_timer(self):
+        self.timer_running = False
+
+    # ---------------------------------------------------------
+    #  PONTUAÇÃO
+    # ---------------------------------------------------------
+    def add_score(self, value):
+        self.score += value
+        self.score_text.value = f"Pontuação: {self.score}"
+        self.update()
+
+    # ---------------------------------------------------------
+    #  MUDAR TRASEIRA
+    # ---------------------------------------------------------
     def set_card_back(self, filename):
         self.card_back_src = f"/images/{filename}"
 
-        # atualizar todas as cartas viradas para baixo
         for card in self.cards:
             if not card.face_up:
                 card.content.content.src = self.card_back_src
 
         self.update()
 
+    # ---------------------------------------------------------
+    #  INICIAR JOGO
+    # ---------------------------------------------------------
     def did_mount(self):
         self.create_card_deck()
         self.create_slots()
         self.deal_cards()
 
     # ---------------------------------------------------------
-    #  SISTEMA DE UNDO POR REFERÊNCIA DE CARTA
+    #  UNDO
     # ---------------------------------------------------------
     def save_state(self):
         state = []
@@ -67,6 +129,8 @@ class Solitaire(ft.Stack):
     def undo(self):
         if len(self.history) < 2:
             return
+
+        self.add_score(-5)
 
         self.history.pop()
         state = self.history[-1]
@@ -103,10 +167,20 @@ class Solitaire(ft.Stack):
     #  RESET TOTAL DO JOGO
     # ---------------------------------------------------------
     def reset_game(self):
+        # reset pontuação e tempo
+        self.score = 0
+        self.seconds = 0
+        self.first_move_done = False
+        self.timer_running = False
+
+        self.score_text.value = "Pontuação: 0"
+        self.time_text.value = "Tempo: 00:00"
+
         for slot in [self.stock, self.waste] + self.foundations + self.tableau:
             slot.pile.clear()
 
         self.controls = [
+            self.top_bar,
             self.stock,
             self.waste,
             *self.foundations,
@@ -156,21 +230,21 @@ class Solitaire(ft.Stack):
                 id_counter += 1
 
     def create_slots(self):
-        self.stock = Slot(self, top=0, left=0, border=ft.border.all(1))
-        self.waste = Slot(self, top=0, left=100, border=None)
+        self.stock = Slot(self, top=40, left=0, border=ft.border.all(1))
+        self.waste = Slot(self, top=40, left=100, border=None)
 
         self.foundations = []
         x = 300
         for i in range(4):
             self.foundations.append(
-                Slot(self, top=0, left=x, border=ft.border.all(1, "outline"))
+                Slot(self, top=40, left=x, border=ft.border.all(1, "outline"))
             )
             x += 100
 
         self.tableau = []
         x = 0
         for i in range(7):
-            self.tableau.append(Slot(self, top=150, left=x, border=None))
+            self.tableau.append(Slot(self, top=190, left=x, border=None))
             x += 100
 
         self.controls.append(self.stock)
@@ -198,11 +272,9 @@ class Solitaire(ft.Stack):
 
         self.update()
 
-        # virar a carta do topo de cada coluna
         for slot in self.tableau:
             slot.get_top_card().turn_face_up()
 
-        # 🔥 AGORA SIM: atualizar todas as cartas viradas para baixo
         for card in self.cards:
             if not card.face_up:
                 card.content.content.src = self.card_back_src
@@ -211,7 +283,6 @@ class Solitaire(ft.Stack):
 
         self.history.clear()
         self.save_state()
-
 
     def check_foundations_rules(self, card, slot):
         top_card = slot.get_top_card()
@@ -235,6 +306,7 @@ class Solitaire(ft.Stack):
             return card.rank.name == "King"
 
     def restart_stock(self):
+        self.add_score(-20)
         self.save_state()
 
         while len(self.waste.pile) > 0:
@@ -250,13 +322,18 @@ class Solitaire(ft.Stack):
         return cards_num == 52
 
     def winning_sequence(self):
-        for slot in self.foundations:
-            for card in slot.pile:
-                card.animate_position = 2000
-                card.move_on_top()
-                card.top = random.randint(0, SOLITAIRE_HEIGHT)
-                card.left = random.randint(0, SOLITAIRE_WIDTH)
-                self.update()
-        self.controls.append(
-            ft.AlertDialog(title=ft.Text("Congratulations! You won!"), open=True)
+        self.stop_timer()
+
+        mins = self.seconds // 60
+        secs = self.seconds % 60
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Parabéns!"),
+            content=ft.Text(
+                f"Terminaste o jogo!\n\nTempo: {mins:02d}:{secs:02d}\nPontuação: {self.score}"
+            ),
+            open=True,
         )
+
+        self.controls.append(dialog)
+        self.update()

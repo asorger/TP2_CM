@@ -35,6 +35,7 @@ class Card(ft.GestureDetector):
     def turn_face_up(self):
         self.face_up = True
         self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
+        self.solitaire.add_score(5)
         self.solitaire.update()
 
     def turn_face_down(self):
@@ -64,11 +65,16 @@ class Card(ft.GestureDetector):
     def place(self, slot):
         self.solitaire.save_state()
 
+        # primeira jogada → iniciar cronómetro
+        self.solitaire.start_timer()
+
         for card in self.draggable_pile:
             if slot in self.solitaire.tableau:
                 card.top = slot.top + len(slot.pile) * CARD_OFFSET
+                self.solitaire.add_score(3)
             else:
                 card.top = slot.top
+
             card.left = slot.left
 
             if card.slot is not None and card in card.slot.pile:
@@ -76,6 +82,9 @@ class Card(ft.GestureDetector):
 
             card.slot = slot
             slot.pile.append(card)
+
+        if slot in self.solitaire.foundations:
+            self.solitaire.add_score(10)
 
         if self.solitaire.check_win():
             self.solitaire.winning_sequence()
@@ -133,12 +142,16 @@ class Card(ft.GestureDetector):
 
     def click(self, e):
         self.get_draggable_pile()
+
         if self.slot in self.solitaire.tableau:
             if not self.face_up and len(self.draggable_pile) == 1:
                 self.solitaire.save_state()
+                self.solitaire.start_timer()
                 self.turn_face_up()
+
         elif self.slot == self.solitaire.stock:
             self.solitaire.save_state()
+            self.solitaire.start_timer()
             self.move_on_top()
             self.place(self.solitaire.waste)
             self.turn_face_up()
@@ -147,6 +160,7 @@ class Card(ft.GestureDetector):
         self.get_draggable_pile()
         if self.face_up and len(self.draggable_pile) == 1:
             self.solitaire.save_state()
+            self.solitaire.start_timer()
             self.move_on_top()
             for slot in self.solitaire.foundations:
                 if self.solitaire.check_foundations_rules(self, slot):
