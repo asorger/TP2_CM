@@ -7,7 +7,17 @@ def main(page: ft.Page):
 
     solitaire = Solitaire()
 
-    page.add(solitaire)
+    restart_button = ft.ElevatedButton(
+        "Reiniciar",
+        on_click=lambda e: solitaire.reset_game()
+    )
+
+    undo_button = ft.ElevatedButton(
+        "Undo",
+        on_click=lambda e: solitaire.undo()
+    )
+
+    page.add(restart_button, undo_button, solitaire)
 
 
 ft.app(target=main, assets_dir="assets")
