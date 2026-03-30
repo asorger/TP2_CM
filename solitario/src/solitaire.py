@@ -27,6 +27,19 @@ class Solitaire(ft.Stack):
         self.height = SOLITAIRE_HEIGHT
         self.history = []
 
+        # NOVO: traseira atual das cartas
+        self.card_back_src = "/images/card_back.png"
+
+    def set_card_back(self, filename):
+        self.card_back_src = f"/images/{filename}"
+
+        # atualizar todas as cartas viradas para baixo
+        for card in self.cards:
+            if not card.face_up:
+                card.content.content.src = self.card_back_src
+
+        self.update()
+
     def did_mount(self):
         self.create_card_deck()
         self.create_slots()
@@ -55,11 +68,9 @@ class Solitaire(ft.Stack):
         if len(self.history) < 2:
             return
 
-        # descartar estado atual
         self.history.pop()
         state = self.history[-1]
 
-        # criar pilhas temporárias
         new_piles = {
             self.stock: [],
             self.waste: [],
@@ -67,24 +78,20 @@ class Solitaire(ft.Stack):
             **{slot: [] for slot in self.tableau},
         }
 
-        # reconstruir pilhas na ordem correta
         for entry in state:
             card = entry["card"]
             slot = entry["slot"]
             new_piles[slot].append(card)
 
-            # restaurar posição visual
             card.top = entry["top"]
             card.left = entry["left"]
 
-            # restaurar face
             card.face_up = entry["face_up"]
             if card.face_up:
                 card.turn_face_up()
             else:
                 card.turn_face_down()
 
-        # aplicar pilhas restauradas
         for slot, pile in new_piles.items():
             slot.pile = pile
             for card in pile:
@@ -92,17 +99,13 @@ class Solitaire(ft.Stack):
 
         self.update()
 
-
-
     # ---------------------------------------------------------
     #  RESET TOTAL DO JOGO
     # ---------------------------------------------------------
     def reset_game(self):
-        # limpar pilhas
         for slot in [self.stock, self.waste] + self.foundations + self.tableau:
             slot.pile.clear()
 
-        # remover TODAS as cartas do layout
         self.controls = [
             self.stock,
             self.waste,
@@ -110,19 +113,16 @@ class Solitaire(ft.Stack):
             *self.tableau
         ]
 
-        # recriar baralho e redistribuir
         self.create_card_deck()
         self.deal_cards()
 
-        # novo jogo = histórico limpo + estado inicial
         self.history.clear()
         self.save_state()
 
         self.update()
 
-
     # ---------------------------------------------------------
-    #  RESTO DO TEU CÓDIGO (LÓGICA IGUAL)
+    #  RESTO DO TEU CÓDIGO
     # ---------------------------------------------------------
     def create_card_deck(self):
         suites = [
@@ -198,14 +198,20 @@ class Solitaire(ft.Stack):
 
         self.update()
 
+        # virar a carta do topo de cada coluna
         for slot in self.tableau:
             slot.get_top_card().turn_face_up()
 
+        # 🔥 AGORA SIM: atualizar todas as cartas viradas para baixo
+        for card in self.cards:
+            if not card.face_up:
+                card.content.content.src = self.card_back_src
+
         self.update()
 
-        # estado inicial do jogo
         self.history.clear()
         self.save_state()
+
 
     def check_foundations_rules(self, card, slot):
         top_card = slot.get_top_card()
@@ -229,7 +235,6 @@ class Solitaire(ft.Stack):
             return card.rank.name == "King"
 
     def restart_stock(self):
-        # reciclar stock também é jogada
         self.save_state()
 
         while len(self.waste.pile) > 0:
