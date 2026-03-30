@@ -29,7 +29,12 @@ def main(page: ft.Page):
         on_change=lambda e: solitaire.set_card_back(e.control.value)
     )
 
-    page.add(restart_button, undo_button, card_back_selector, solitaire)
+    page.add(
+        restart_button,
+        undo_button,
+        card_back_selector,
+        solitaire
+    )
 
 
 ft.app(target=main, assets_dir="assets")
