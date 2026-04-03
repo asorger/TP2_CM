@@ -32,6 +32,9 @@ class Card(ft.GestureDetector):
         )
         self.draggable_pile = [self]
 
+    # -----------------------------
+    # MÉTODOS DE VIRAR CARTA
+    # -----------------------------
     def turn_face_up(self):
         self.face_up = True
         self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
@@ -43,6 +46,17 @@ class Card(ft.GestureDetector):
         self.content.content.src = self.solitaire.card_back_src
         self.solitaire.update()
 
+    # usado por UNDO / LOAD: sem pontuação, sem update extra
+    def set_face_up_silent(self, value: bool):
+        self.face_up = value
+        if self.face_up:
+            self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
+        else:
+            self.content.content.src = self.solitaire.card_back_src
+
+    # -----------------------------
+    # RESTO DO TEU CÓDIGO
+    # -----------------------------
     def move_on_top(self):
         for card in self.draggable_pile:
             if card in self.solitaire.controls:
@@ -64,8 +78,6 @@ class Card(ft.GestureDetector):
 
     def place(self, slot):
         self.solitaire.save_state()
-
-        # primeira jogada → iniciar cronómetro
         self.solitaire.start_timer()
 
         for card in self.draggable_pile:
