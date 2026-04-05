@@ -1,4 +1,5 @@
 import flet as ft
+import json
 from solitaire import Solitaire
 
 
@@ -27,40 +28,90 @@ def main(page: ft.Page):
             page.update()
 
     def save_game(e):
-        solitaire.save_to_storage()
+        def confirm_save(ev):
+            name = name_field.value.strip()
+            if name == "":
+                return
+
+            saves = page.client_storage.get("solitaire_saves") or []
+            saves = json.loads(saves) if isinstance(saves, str) else saves
+
+            state = solitaire.export_state()
+            saves.append({"name": name, "data": state})
+
+            page.client_storage.set("solitaire_saves", json.dumps(saves))
+
+            dialog.open = False
+            page.update()
+
+        name_field = ft.TextField(label="Nome do save", width=250)
 
         dialog = ft.AlertDialog(
-            title=ft.Text("Jogo Guardado"),
-            content=ft.Text("O jogo foi guardado com sucesso."),
-            actions=[ft.TextButton("OK", on_click=close_dialog)],
+            title=ft.Text("Guardar Jogo"),
+            content=name_field,
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: close_dialog()),
+                ft.TextButton("Guardar", on_click=confirm_save),
+            ],
         )
 
         page.overlay.append(dialog)
         dialog.open = True
         page.update()
 
-    def load_game(e):
-        ok = solitaire.load_from_storage()
 
-        if not ok:
+    def load_game(e):
+        saves = page.client_storage.get("solitaire_saves") or []
+        saves = json.loads(saves) if isinstance(saves, str) else saves
+
+        if not saves:
             dialog = ft.AlertDialog(
-                title=ft.Text("Erro"),
-                content=ft.Text("Nenhum jogo guardado encontrado."),
+                title=ft.Text("Carregar Jogo"),
+                content=ft.Text("Não existem saves."),
                 actions=[ft.TextButton("OK", on_click=close_dialog)],
             )
-        else:
-            dialog = ft.AlertDialog(
-                title=ft.Text("Jogo Carregado"),
-                content=ft.Text("O jogo foi carregado com sucesso."),
-                actions=[ft.TextButton("OK", on_click=close_dialog)],
+            page.overlay.append(dialog)
+            dialog.open = True
+            page.update()
+            return
+
+        save_rows = []
+
+        for idx, save in enumerate(saves):
+            def load_closure(s=save):
+                def _load(ev):
+                    solitaire.import_state(s["data"])
+                    close_dialog()
+                return _load
+
+            def delete_closure(i=idx):
+                def _delete(ev):
+                    saves.pop(i)
+                    page.client_storage.set("solitaire_saves", json.dumps(saves))
+                    close_dialog()
+                return _delete
+
+            save_rows.append(
+                ft.Row(
+                    [
+                        ft.Text(save["name"], expand=True),
+                        ft.TextButton("Carregar", on_click=load_closure()),
+                        ft.TextButton("Apagar", on_click=delete_closure()),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                )
             )
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Carregar Jogo"),
+            content=ft.Column(save_rows, scroll=ft.ScrollMode.AUTO, height=300),
+            actions=[ft.TextButton("Fechar", on_click=close_dialog)],
+        )
 
         page.overlay.append(dialog)
         dialog.open = True
         page.update()
 
-    save_button = ft.ElevatedButton("Guardar Jogo", on_click=save_game)
-    load_button = ft.ElevatedButton("Carregar Jogo", on_click=load_game)
 
     def show_leaderboard():
         scores = solitaire.get_leaderboard()
