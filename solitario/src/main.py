@@ -88,31 +88,31 @@ def main(page: ft.Page):
 
     restart_button = ft.ElevatedButton(
         "Reiniciar",
-        icon=ft.icons.RESTART_ALT,
+        icon=ft.Icons.RESTART_ALT,
         on_click=lambda e: solitaire.reset_game()
     )
 
     undo_button = ft.ElevatedButton(
         "Undo",
-        icon=ft.icons.UNDO,
+        icon=ft.Icons.UNDO,
         on_click=lambda e: solitaire.undo()
     )
 
     save_button = ft.ElevatedButton(
         "Guardar Jogo",
-        icon=ft.icons.SAVE,
+        icon=ft.Icons.SAVE,
         on_click=save_game
     )
 
     load_button = ft.ElevatedButton(
         "Carregar Jogo",
-        icon=ft.icons.UPLOAD_FILE,
+        icon=ft.Icons.UPLOAD_FILE,
         on_click=load_game
     )
 
     leaderboard_button = ft.ElevatedButton(
         "Pontuações",
-        icon=ft.icons.LEADERBOARD,
+        icon=ft.Icons.LEADERBOARD,
         on_click=lambda e: show_leaderboard()
     )
     restart_button.style = button_style
