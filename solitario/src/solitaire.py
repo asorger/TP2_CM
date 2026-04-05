@@ -81,11 +81,8 @@ class Solitaire(ft.Stack):
             )
         )
 
-        # tornar o texto mais visível no fundo verde
         self.time_text.color = ft.Colors.WHITE
         self.score_text.color = ft.Colors.WHITE
-
-
         self.controls.append(self.top_bar)
 
     async def timer_loop(self):
@@ -93,7 +90,6 @@ class Solitaire(ft.Stack):
             await asyncio.sleep(1)
             self.seconds += 1
 
-            # atualizar texto do tempo
             mins = self.seconds // 60
             secs = self.seconds % 60
             self.time_text.value = f"Tempo: {mins:02d}:{secs:02d}"
@@ -105,16 +101,13 @@ class Solitaire(ft.Stack):
                     self.challenge_timers[cond] -= 1
                     remaining = self.challenge_timers[cond]
 
-                    # atualizar texto
                     idx = self.active_challenges.index(ch)
                     title = self.challenge_texts[idx].controls[0]
                     title.value = f"{ch['name']} ({remaining}s)"
 
-                    # atualizar barra
                     bar = self.challenge_bars[idx]
                     bar.value = max(0, remaining / ch["time"])
 
-                    # falhou
                     if remaining <= 0:
                         ch["failed"] = True
                         title.color = ft.Colors.RED
@@ -128,20 +121,16 @@ class Solitaire(ft.Stack):
             self.first_move_done = True
             self.timer_running = True
 
-            # cancelar timer antigo se existir
             if self.timer_task is not None:
                 self.timer_task.cancel()
 
-            # criar novo timer
             self.timer_task = self.page.run_task(self.timer_loop)
-
 
     def stop_timer(self):
         self.timer_running = False
         if self.timer_task is not None:
             self.timer_task.cancel()
             self.timer_task = None
-
 
     def add_score(self, value):
         self.score += value
@@ -163,9 +152,6 @@ class Solitaire(ft.Stack):
         self.deal_cards()
         self.create_dummy_scores()
 
-    # ---------------------------------------------------------
-    #  EXPORTAR ESTADO DO JOGO (com proteção)
-    # ---------------------------------------------------------
     def export_state(self):
         for card in self.cards:
             if card.slot is None:
@@ -191,9 +177,6 @@ class Solitaire(ft.Stack):
 
         return state
 
-    # ---------------------------------------------------------
-    #  SAVE / LOAD via SharedPreferences
-    # ---------------------------------------------------------
     def save_to_storage(self, key="solitaire_state"):
         if not hasattr(self, "page") or self.page is None:
             return
@@ -214,17 +197,11 @@ class Solitaire(ft.Stack):
 
         state = json.loads(data)
 
-        # -------------------------------------------------
-        # LIMPAR TUDO ANTES DE CARREGAR O NOVO ESTADO
-        # -------------------------------------------------
-
-        # remover cartas antigas
         if hasattr(self, "cards"):
             for card in self.cards:
                 if card in self.controls:
                     self.controls.remove(card)
 
-        # remover slots antigos
         for group in ["tableau", "foundations"]:
             if hasattr(self, group):
                 for slot in getattr(self, group):
@@ -237,7 +214,6 @@ class Solitaire(ft.Stack):
         if hasattr(self, "waste") and self.waste in self.controls:
             self.controls.remove(self.waste)
 
-        # limpar pilhas antigas
         if hasattr(self, "tableau"):
             for slot in self.tableau:
                 slot.pile.clear()
@@ -252,18 +228,12 @@ class Solitaire(ft.Stack):
         if hasattr(self, "waste"):
             self.waste.pile.clear()
 
-        # -------------------------------------------------
-        # RECRIAR E CARREGAR
-        # -------------------------------------------------
         self.create_card_deck()
         self.create_slots()
         self.import_state(state)
 
         return True
 
-    # ---------------------------------------------------------
-    #  IMPORTAR ESTADO DO JOGO (ordem lógica corrigida)
-    # ---------------------------------------------------------
     def import_state(self, state):
         for slot in [self.stock, self.waste] + self.foundations + self.tableau:
             slot.pile.clear()
@@ -312,10 +282,6 @@ class Solitaire(ft.Stack):
                 card.content.content.src = self.card_back_src
 
         self.update()
-
-    # ---------------------------------------------------------
-    #  RESTO DO TEU CÓDIGO (SEM ALTERAÇÕES)
-    # ---------------------------------------------------------
 
     def save_state(self):
         state = []
@@ -386,8 +352,6 @@ class Solitaire(ft.Stack):
                 self.add_score(400)
 
                 idx = self.active_challenges.index(ch)
-
-                # --- atualizar texto ---
                 title = self.challenge_texts[idx].controls[0]
                 title.color = ft.Colors.GREEN
                 bar = self.challenge_bars[idx]
@@ -421,8 +385,6 @@ class Solitaire(ft.Stack):
         self.challenge_timers = {ch["condition"]: ch["time"] for ch in self.active_challenges}
 
         self.first_move_done = False
-
-        # parar o timer antigo
         self.timer_running = False
 
         self.score_text.value = "Pontuação: 0"
@@ -447,9 +409,8 @@ class Solitaire(ft.Stack):
 
         self.update()
 
-        # iniciar um novo timer (linha nova)
         self.timer_running = True
-        self.start_timer()   # linha nova
+        self.start_timer()  
 
 
     def create_card_deck(self):
@@ -549,7 +510,6 @@ class Solitaire(ft.Stack):
             )
 
             if valid:
-                # desafio: fundação acelerada
                 self.foundation_moves = getattr(self, "foundation_moves", 0) + 1
                 if self.foundation_moves == 3:
                     self.complete_challenge("three_foundations")
@@ -557,9 +517,7 @@ class Solitaire(ft.Stack):
             return valid
 
         else:
-            # só aceita Ás
             if card.rank.name == "Ace":
-                # desafio: ás imediato
                 self.complete_challenge("ace_to_foundation")
                 return True
 
@@ -569,8 +527,6 @@ class Solitaire(ft.Stack):
 
     def check_tableau_rules(self, card, slot):
         top_card = slot.get_top_card()
-
-        # movimento normal
         if top_card is not None:
             valid = (
                 card.suite.color != top_card.suite.color
@@ -579,21 +535,17 @@ class Solitaire(ft.Stack):
             )
 
             if valid:
-                # desafio: rainha sobre rei
                 if card.rank.name == "Queen" and top_card.rank.name == "King":
                     self.complete_challenge("queen_on_king")
 
-                # desafio: combo de cores
                 self.alt_moves = getattr(self, "alt_moves", 0) + 1
                 if self.alt_moves == 5:
                     self.complete_challenge("five_alt_moves")
 
             return valid
 
-        # slot vazio → só aceita Rei
         else:
             if card.rank.name == "King":
-                # desafio: rei relâmpago
                 self.complete_challenge("king_to_empty")
                 return True
 
@@ -604,7 +556,6 @@ class Solitaire(ft.Stack):
         self.add_score(-20)
         self.save_state()
 
-        # desafio: usar stock 2 vezes
         self.stock_uses = getattr(self, "stock_uses", 0) + 1
         if self.stock_uses == 2:
             self.complete_challenge("use_stock_twice")
@@ -632,19 +583,13 @@ class Solitaire(ft.Stack):
         else:
             leaderboard = []
 
-        # adicionar nova entrada
         leaderboard.append({
             "score": score,
             "time": time_seconds
         })
 
-        # ordenar por pontuação (descendente)
         leaderboard = sorted(leaderboard, key=lambda x: x["score"], reverse=True)
-
-        # manter só top 3
         leaderboard = leaderboard[:3]
-
-        # guardar
         self.page.client_storage.set("leaderboard", json.dumps(leaderboard))
 
 
@@ -668,8 +613,6 @@ class Solitaire(ft.Stack):
 
     def get_challenge_panel(self):
         items = []
-
-        # só cria itens se já houver desafios carregados
         if self.challenge_texts and self.challenge_bars:
             for txt, bar in zip(self.challenge_texts, self.challenge_bars):
                 items.append(ft.Column([txt, bar], spacing=5))

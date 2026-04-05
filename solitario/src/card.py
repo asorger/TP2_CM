@@ -32,27 +32,15 @@ class Card(ft.GestureDetector):
         )
         self.draggable_pile = [self]
 
-    # -----------------------------
-    # MÉTODOS DE VIRAR CARTA
-    # -----------------------------
     def turn_face_up(self):
         self.face_up = True
         self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
         self.solitaire.add_score(5)
-
-        # -----------------------------
-        # DESAFIO: Dupla Virada
-        # -----------------------------
         self.solitaire.flip_count += 1
         if self.solitaire.flip_count == 2:
             self.solitaire.complete_challenge("flip_two")
 
-        # -----------------------------
-        # DESAFIO: Desbloqueio Rápido
-        # virar a última carta virada para baixo da coluna
-        # -----------------------------
         if self.slot in self.solitaire.tableau:
-            # se esta carta é a última da coluna
             if self.slot.pile[-1] is self:
                 self.solitaire.complete_challenge("deep_flip")
 
@@ -64,7 +52,6 @@ class Card(ft.GestureDetector):
         self.content.content.src = self.solitaire.card_back_src
         self.solitaire.update()
 
-    # usado por UNDO / LOAD: sem pontuação, sem update extra
     def set_face_up_silent(self, value: bool):
         self.face_up = value
         if self.face_up:
@@ -72,9 +59,6 @@ class Card(ft.GestureDetector):
         else:
             self.content.content.src = self.solitaire.card_back_src
 
-    # -----------------------------
-    # RESTO DO TEU CÓDIGO
-    # -----------------------------
     def move_on_top(self):
         for card in self.draggable_pile:
             if card in self.solitaire.controls:
@@ -98,32 +82,20 @@ class Card(ft.GestureDetector):
         self.solitaire.save_state()
         self.solitaire.start_timer()
 
-        # -----------------------------
-        # DESAFIO: Rei Relâmpago
-        # -----------------------------
         if slot in self.solitaire.tableau and len(slot.pile) == 0 and self.rank.name == "King":
             self.solitaire.complete_challenge("king_to_empty")
 
-        # -----------------------------
-        # DESAFIO: Rainha da Ordem
-        # -----------------------------
         if slot in self.solitaire.tableau:
             top = slot.get_top_card()
             if top and self.rank.name == "Queen" and top.rank.name == "King":
                 self.solitaire.complete_challenge("queen_on_king")
 
-        # -----------------------------
-        # DESAFIO: Trio de Movimentos
-        # (movimentos tableau → tableau)
-        # -----------------------------
+
         if self.slot in self.solitaire.tableau and slot in self.solitaire.tableau:
             self.solitaire.tableau_moves += 1
             if self.solitaire.tableau_moves == 3:
                 self.solitaire.complete_challenge("three_tableau_moves")
 
-        # -----------------------------
-        # DESAFIO: Combo de Cores
-        # -----------------------------
         if slot in self.solitaire.tableau:
             top = slot.get_top_card()
             if top and top.face_up and top.suite.color != self.suite.color:
@@ -131,10 +103,6 @@ class Card(ft.GestureDetector):
                 if self.solitaire.alt_moves == 5:
                     self.solitaire.complete_challenge("five_alt_moves")
 
-        # -----------------------------
-        # DESAFIO: Limpa-Mesa
-        # (depois de remover carta da coluna anterior)
-        # -----------------------------
         old_slot = self.slot
 
         for card in self.draggable_pile:
@@ -152,13 +120,10 @@ class Card(ft.GestureDetector):
             card.slot = slot
             slot.pile.append(card)
 
-        # verificar se a coluna antiga ficou vazia
         if old_slot in self.solitaire.tableau and len(old_slot.pile) == 0:
             self.solitaire.complete_challenge("empty_column")
 
-        # -----------------------------
-        # DESAFIO: Fundação Acelerada
-        # -----------------------------
+
         if slot in self.solitaire.foundations:
             self.solitaire.add_score(10)
             self.solitaire.foundation_moves += 1
