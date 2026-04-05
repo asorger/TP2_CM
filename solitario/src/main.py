@@ -18,35 +18,43 @@ def main(page: ft.Page):
     )
 
     def close_dialog(e=None):
-        page.dialog.open = False
-        page.update()
+        # fechar o último diálogo aberto
+        if page.overlay:
+            dlg = page.overlay[-1]
+            dlg.open = False
+            page.update()
 
     def save_game(e):
         solitaire.save_to_storage()
-        page.dialog = ft.AlertDialog(
+
+        dialog = ft.AlertDialog(
             title=ft.Text("Jogo Guardado"),
             content=ft.Text("O jogo foi guardado com sucesso."),
             actions=[ft.TextButton("OK", on_click=close_dialog)],
-            open=True,
         )
+
+        page.overlay.append(dialog)
+        dialog.open = True
         page.update()
 
     def load_game(e):
         ok = solitaire.load_from_storage()
+
         if not ok:
-            page.dialog = ft.AlertDialog(
+            dialog = ft.AlertDialog(
                 title=ft.Text("Erro"),
                 content=ft.Text("Nenhum jogo guardado encontrado."),
                 actions=[ft.TextButton("OK", on_click=close_dialog)],
-                open=True,
             )
         else:
-            page.dialog = ft.AlertDialog(
+            dialog = ft.AlertDialog(
                 title=ft.Text("Jogo Carregado"),
                 content=ft.Text("O jogo foi carregado com sucesso."),
                 actions=[ft.TextButton("OK", on_click=close_dialog)],
-                open=True,
             )
+
+        page.overlay.append(dialog)
+        dialog.open = True
         page.update()
 
     save_button = ft.ElevatedButton("Guardar Jogo", on_click=save_game)
@@ -68,17 +76,19 @@ def main(page: ft.Page):
                 spacing=5
             )
 
-        page.dialog = ft.AlertDialog(
+        dialog = ft.AlertDialog(
             title=ft.Text("Top 3 Pontuações"),
             content=content,
-            actions=[ft.TextButton("OK", on_click=lambda e: close_dialog())],
-            open=True
+            actions=[ft.TextButton("OK", on_click=close_dialog)],
         )
+
+        page.overlay.append(dialog)
+        dialog.open = True
         page.update()
 
 
     # -----------------------------
-    # ESTILO DOS BOTÕES (alteração pedida)
+    # ESTILO DOS BOTÕES
     # -----------------------------
     button_style = ft.ButtonStyle(
         color=ft.Colors.WHITE,
@@ -115,6 +125,7 @@ def main(page: ft.Page):
         icon=ft.Icons.LEADERBOARD,
         on_click=lambda e: show_leaderboard()
     )
+
     restart_button.style = button_style
     undo_button.style = button_style
     save_button.style = button_style
@@ -153,8 +164,11 @@ def main(page: ft.Page):
         )
     )
 
+    # Criar o painel lateral de desafios
+    solitaire.challenge_panel = solitaire.get_challenge_panel()
+
     # -----------------------------
-    # FUNDO DA PÁGINA INTEIRA
+    # LAYOUT FINAL COM BARRA LATERAL DE DESAFIOS
     # -----------------------------
     page.add(
         ft.Container(
@@ -164,13 +178,19 @@ def main(page: ft.Page):
             content=ft.Column(
                 [
                     controls_bar,
-                    ft.Container(
-                        content=solitaire,
-                        padding=ft.padding.only(top=10) 
+                    ft.Row(
+                        [
+                            ft.Container(
+                                content=solitaire,
+                                expand=True,
+                                padding=ft.padding.only(top=10)
+                            ),
+                            solitaire.challenge_panel
+                        ],
+                        expand=True
                     )
                 ]
             )
-
         )
     )
 
