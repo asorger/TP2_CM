@@ -45,7 +45,7 @@ class Solitaire(ft.Stack):
             width=SOLITAIRE_WIDTH,
             height=40,
             padding=10,
-            bgcolor=ft.colors.with_opacity(0.15, ft.colors.BLACK),
+            bgcolor=ft.Colors.with_opacity(0.15, ft.Colors.BLACK),
             border_radius=8,
             content=ft.Row(
                 [
@@ -58,8 +58,8 @@ class Solitaire(ft.Stack):
         )
 
         # tornar o texto mais visível no fundo verde
-        self.time_text.color = ft.colors.WHITE
-        self.score_text.color = ft.colors.WHITE
+        self.time_text.color = ft.Colors.WHITE
+        self.score_text.color = ft.Colors.WHITE
 
 
         self.controls.append(self.top_bar)
