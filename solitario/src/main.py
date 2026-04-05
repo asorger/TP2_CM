@@ -5,6 +5,9 @@ from solitaire import Solitaire
 def main(page: ft.Page):
     page.on_error = lambda e: print("Page error:", e.data)
 
+    # Favicon simples
+    page.favicon = "/favicon.png"
+
     solitaire = Solitaire()
 
     restart_button = ft.ElevatedButton(
@@ -18,7 +21,6 @@ def main(page: ft.Page):
     )
 
     def close_dialog(e=None):
-        # fechar o último diálogo aberto
         if page.overlay:
             dlg = page.overlay[-1]
             dlg.open = False
@@ -86,7 +88,6 @@ def main(page: ft.Page):
         dialog.open = True
         page.update()
 
-
     # -----------------------------
     # ESTILO DOS BOTÕES
     # -----------------------------
@@ -131,7 +132,6 @@ def main(page: ft.Page):
     save_button.style = button_style
     load_button.style = button_style
     leaderboard_button.style = button_style
-
 
     card_back_selector = ft.Dropdown(
         label="Traseira das cartas",
