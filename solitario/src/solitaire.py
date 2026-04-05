@@ -41,6 +41,30 @@ class Solitaire(ft.Stack):
         self.score_text = ft.Text("Pontuação: 0", size=18, weight="bold")
         self.time_text = ft.Text("Tempo: 00:00", size=18, weight="bold")
 
+        self.all_challenges = [
+            {"id": 1, "name": "Rei Relâmpago", "desc": "Mover um Rei para uma coluna vazia.", "time": 45, "condition": "king_to_empty"},
+            {"id": 2, "name": "Ás Imediato", "desc": "Colocar um Ás na fundação.", "time": 30, "condition": "ace_to_foundation"},
+            {"id": 3, "name": "Dupla Virada", "desc": "Virar 2 cartas do tableau.", "time": 40, "condition": "flip_two"},
+            {"id": 4, "name": "Fundação Acelerada", "desc": "Colocar 3 cartas na fundação.", "time": 90, "condition": "three_foundations"},
+            {"id": 5, "name": "Limpa-Mesa", "desc": "Esvaziar uma coluna do tableau.", "time": 120, "condition": "empty_column"},
+            {"id": 6, "name": "Combo de Cores", "desc": "Fazer 5 movimentos alternando cores.", "time": 60, "condition": "five_alt_moves"},
+            {"id": 7, "name": "Desbloqueio Rápido", "desc": "Virar a carta mais profunda de uma coluna.", "time": 75, "condition": "deep_flip"},
+            {"id": 8, "name": "Trio de Movimentos", "desc": "Fazer 3 movimentos tableau → tableau.", "time": 50, "condition": "three_tableau_moves"},
+            {"id": 9, "name": "Reciclagem Inteligente", "desc": "Usar o stock duas vezes.", "time": 40, "condition": "use_stock_twice"},
+            {"id": 10, "name": "Rainha da Ordem", "desc": "Colocar uma Rainha sobre um Rei.", "time": 45, "condition": "queen_on_king"},
+        ]
+
+        self.active_challenges = []
+        self.challenge_texts = []
+        self.challenge_bars = []
+        self.challenge_timers = {}
+        self.flip_count = 0
+        self.foundation_moves = 0
+        self.alt_moves = 0
+        self.tableau_moves = 0
+        self.stock_uses = 0
+
+
         self.top_bar = ft.Container(
             width=SOLITAIRE_WIDTH,
             height=40,
@@ -68,9 +92,35 @@ class Solitaire(ft.Stack):
         while self.timer_running:
             await asyncio.sleep(1)
             self.seconds += 1
+
+            # atualizar texto do tempo
             mins = self.seconds // 60
             secs = self.seconds % 60
             self.time_text.value = f"Tempo: {mins:02d}:{secs:02d}"
+
+            for ch in self.active_challenges:
+                cond = ch["condition"]
+
+                if not ch.get("done") and not ch.get("failed"):
+                    self.challenge_timers[cond] -= 1
+                    remaining = self.challenge_timers[cond]
+
+                    # atualizar texto
+                    idx = self.active_challenges.index(ch)
+                    title = self.challenge_texts[idx].controls[0]
+                    title.value = f"{ch['name']} ({remaining}s)"
+
+                    # atualizar barra
+                    bar = self.challenge_bars[idx]
+                    bar.value = max(0, remaining / ch["time"])
+
+                    # falhou
+                    if remaining <= 0:
+                        ch["failed"] = True
+                        title.color = ft.Colors.RED
+                        bar.color = ft.Colors.RED
+
+            self.update_challenge_panel()
             self.update()
 
     def start_timer(self):
@@ -328,9 +378,48 @@ class Solitaire(ft.Stack):
 
         self.update()
 
+    def complete_challenge(self, condition):
+        for ch in self.active_challenges:
+            if ch["condition"] == condition and not ch.get("done") and not ch.get("failed"):
+
+                ch["done"] = True
+                self.add_score(400)
+
+                idx = self.active_challenges.index(ch)
+
+                # --- atualizar texto ---
+                title = self.challenge_texts[idx].controls[0]
+                title.color = ft.Colors.GREEN
+                bar = self.challenge_bars[idx]
+                bar.value = 1.0
+                bar.color = ft.Colors.GREEN
+                self.update_challenge_panel()
+                self.update()
+
     def reset_game(self):
         self.score = 0
         self.seconds = 0
+        self.active_challenges = random.sample(self.all_challenges, 2)
+
+        self.challenge_texts = []
+        self.challenge_bars = []
+        self.challenge_timers = {}
+
+        for ch in self.active_challenges:
+            self.challenge_timers[ch["condition"]] = ch["time"]
+
+            title = ft.Text(f"{ch['name']} ({ch['time']}s)", color=ft.Colors.WHITE, size=16, weight="bold")
+            desc = ft.Text(ch["desc"], color=ft.Colors.WHITE70, size=13)
+
+            bar = ft.ProgressBar(value=1.0, width=200, color=ft.Colors.GREEN)
+
+            self.challenge_texts.append(ft.Column([title, desc]))
+            self.challenge_bars.append(bar)
+
+
+        self.update_challenge_panel()
+        self.challenge_timers = {ch["condition"]: ch["time"] for ch in self.active_challenges}
+
         self.first_move_done = False
 
         # parar o timer antigo
@@ -452,28 +541,73 @@ class Solitaire(ft.Stack):
 
     def check_foundations_rules(self, card, slot):
         top_card = slot.get_top_card()
+
         if top_card is not None:
-            return (
+            valid = (
                 card.suite.name == top_card.suite.name
                 and card.rank.value - top_card.rank.value == 1
             )
+
+            if valid:
+                # desafio: fundação acelerada
+                self.foundation_moves = getattr(self, "foundation_moves", 0) + 1
+                if self.foundation_moves == 3:
+                    self.complete_challenge("three_foundations")
+
+            return valid
+
         else:
-            return card.rank.name == "Ace"
+            # só aceita Ás
+            if card.rank.name == "Ace":
+                # desafio: ás imediato
+                self.complete_challenge("ace_to_foundation")
+                return True
+
+            return False
+
+        
 
     def check_tableau_rules(self, card, slot):
         top_card = slot.get_top_card()
+
+        # movimento normal
         if top_card is not None:
-            return (
+            valid = (
                 card.suite.color != top_card.suite.color
                 and top_card.rank.value - card.rank.value == 1
                 and top_card.face_up
             )
+
+            if valid:
+                # desafio: rainha sobre rei
+                if card.rank.name == "Queen" and top_card.rank.name == "King":
+                    self.complete_challenge("queen_on_king")
+
+                # desafio: combo de cores
+                self.alt_moves = getattr(self, "alt_moves", 0) + 1
+                if self.alt_moves == 5:
+                    self.complete_challenge("five_alt_moves")
+
+            return valid
+
+        # slot vazio → só aceita Rei
         else:
-            return card.rank.name == "King"
+            if card.rank.name == "King":
+                # desafio: rei relâmpago
+                self.complete_challenge("king_to_empty")
+                return True
+
+            return False
+
 
     def restart_stock(self):
         self.add_score(-20)
         self.save_state()
+
+        # desafio: usar stock 2 vezes
+        self.stock_uses = getattr(self, "stock_uses", 0) + 1
+        if self.stock_uses == 2:
+            self.complete_challenge("use_stock_twice")
 
         while len(self.waste.pile) > 0:
             card = self.waste.get_top_card()
@@ -531,6 +665,49 @@ class Solitaire(ft.Stack):
             {"score": 180, "time": 200}
         ]
         self.page.client_storage.set("leaderboard", json.dumps(dummy))
+
+    def get_challenge_panel(self):
+        items = []
+
+        # só cria itens se já houver desafios carregados
+        if self.challenge_texts and self.challenge_bars:
+            for txt, bar in zip(self.challenge_texts, self.challenge_bars):
+                items.append(ft.Column([txt, bar], spacing=5))
+        else:
+            items.append(ft.Text("Sem desafios ativos.", color=ft.Colors.WHITE70))
+
+        return ft.Container(
+            width=260,
+            padding=10,
+            bgcolor=ft.Colors.with_opacity(0.20, ft.Colors.BLACK),
+            border_radius=8,
+            content=ft.Column(
+                [
+                    ft.Text("Desafios Ativos", size=20, weight="bold", color=ft.Colors.WHITE),
+                    ft.Divider(color=ft.Colors.WHITE),
+                    *items
+                ],
+                spacing=15
+            )
+        )
+
+
+
+    def update_challenge_panel(self):
+        if not hasattr(self, "challenge_panel"):
+            return
+
+        items = []
+        for txt, bar in zip(self.challenge_texts, self.challenge_bars):
+            items.append(ft.Column([txt, bar], spacing=5))
+
+        self.challenge_panel.content.controls = [
+            ft.Text("Desafios Ativos", size=20, weight="bold", color=ft.Colors.WHITE),
+            ft.Divider(color=ft.Colors.WHITE),
+            *items
+        ]
+        self.challenge_panel.update()
+
 
 
     def winning_sequence(self):
