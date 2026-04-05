@@ -123,3 +123,5 @@ Esta funcionalidade demonstra capacidade de design modular, integração de elem
 As funcionalidades extra foram escolhidas para melhorar a experiência do utilizador, aumentar a profundidade do jogo e demonstrar competências técnicas relevantes. Cada funcionalidade foi implementada de forma modular, intuitiva e integrada com a interface geral.
 
 ---
+
+replit: https://tp-2-cm--a86109.replit.app/
