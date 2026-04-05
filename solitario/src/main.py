@@ -2,20 +2,14 @@ import flet as ft
 import json
 from solitaire import Solitaire
 
-
 def main(page: ft.Page):
     page.on_error = lambda e: print("Page error:", e.data)
-
-    # Favicon simples
     page.favicon = "/favicon.png"
-
     solitaire = Solitaire()
-
     restart_button = ft.ElevatedButton(
         "Reiniciar",
         on_click=lambda e: solitaire.reset_game()
     )
-
     undo_button = ft.ElevatedButton(
         "Undo",
         on_click=lambda e: solitaire.undo()
@@ -63,7 +57,6 @@ def main(page: ft.Page):
     def load_game(e):
         saves = page.client_storage.get("solitaire_saves") or []
         saves = json.loads(saves) if isinstance(saves, str) else saves
-
         if not saves:
             dialog = ft.AlertDialog(
                 title=ft.Text("Carregar Jogo"),
@@ -139,9 +132,6 @@ def main(page: ft.Page):
         dialog.open = True
         page.update()
 
-    # -----------------------------
-    # ESTILO DOS BOTÕES
-    # -----------------------------
     button_style = ft.ButtonStyle(
         color=ft.Colors.WHITE,
         bgcolor=ft.Colors.with_opacity(0.25, ft.Colors.BLACK),
@@ -215,12 +205,7 @@ def main(page: ft.Page):
         )
     )
 
-    # Criar o painel lateral de desafios
     solitaire.challenge_panel = solitaire.get_challenge_panel()
-
-    # -----------------------------
-    # LAYOUT FINAL COM BARRA LATERAL DE DESAFIOS
-    # -----------------------------
     page.add(
         ft.Container(
             expand=True,
@@ -244,6 +229,5 @@ def main(page: ft.Page):
             )
         )
     )
-
 
 ft.app(target=main, assets_dir="assets")
