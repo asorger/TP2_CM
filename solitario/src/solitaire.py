@@ -36,6 +36,7 @@ class Solitaire(ft.Stack):
         self.seconds = 0
         self.timer_running = False
         self.first_move_done = False
+        self.timer_task = None
  
         self.score_text = ft.Text("Pontuação: 0", size=18, weight="bold")
         self.time_text = ft.Text("Tempo: 00:00", size=18, weight="bold")
@@ -76,10 +77,21 @@ class Solitaire(ft.Stack):
         if not self.first_move_done:
             self.first_move_done = True
             self.timer_running = True
-            self.page.run_task(self.timer_loop)
+ 
+            # cancelar timer antigo se existir
+            if self.timer_task is not None:
+                self.timer_task.cancel()
+ 
+            # criar novo timer
+            self.timer_task = self.page.run_task(self.timer_loop)
+ 
  
     def stop_timer(self):
         self.timer_running = False
+        if self.timer_task is not None:
+            self.timer_task.cancel()
+            self.timer_task = None
+ 
  
     def add_score(self, value):
         self.score += value
@@ -319,6 +331,8 @@ class Solitaire(ft.Stack):
         self.score = 0
         self.seconds = 0
         self.first_move_done = False
+ 
+        # parar o timer antigo
         self.timer_running = False
  
         self.score_text.value = "Pontuação: 0"
@@ -342,6 +356,11 @@ class Solitaire(ft.Stack):
         self.save_state()
  
         self.update()
+ 
+        # iniciar um novo timer (linha nova)
+        self.timer_running = True
+        self.start_timer()   # linha nova
+ 
  
     def create_card_deck(self):
         suites = [
